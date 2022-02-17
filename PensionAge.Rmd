@@ -36,16 +36,25 @@ library(gganimate)
 
 ## Ageing population
 
-  1. significant technological advances in medical care leading to longer life spans;
-  2. high fertility rates after World War II resulting in "baby-boomer" generation;
-  3. a large decline in fertility rates over past thirty years.
+\placefig{1.5}{1.5}{width=13cm, trim=0 20 0 0, clip=true}{ageing}
 
-\pause\vspace*{0.5cm}
+\vspace*{3cm}\pause
 
-### Consequently:
+  1. technological advances in medical care leading to longer life
+  2. high fertility rates after World War II
+  3. large decline in fertility rates over past thirty years.
 
- * older people leaving workforce, and fewer workers replacing them.
- * increasing old-age dependency ratio (OADR).
+\pause\vspace*{0.1cm}
+
+\begin{block}{Consequently:}
+\begin{itemize}\tightlist
+\item older people leaving workforce, fewer workers replacing them
+\item increasing old-age dependency ratio (OADR)
+\end{itemize}
+\end{block}
+ 
+\vspace*{10cm}
+
 
 ## Population data
 
@@ -264,11 +273,11 @@ tibble(
 \end{align*}
 \end{block}
 
-  * $\{\beta_{1,j},\dots,\beta_{T,j}\}$ is modelled with ARIMA or ARFIMA process
+  * $\{\beta_{1,j},\dots,\beta_{T,j}\}$ is automatically modelled with ARIMA or ARFIMA process
   * $\widehat{\beta}_{T+h\mid T,j}$ is an $h$-step forecast from the AR(F)IMA model
 
 \begin{alertblock}{}
-$\displaystyle\widehat{y}_{T+h\mid T}(x)= \widehat{\mu}(x)+\sum_{j=1}^{J}\phi_j(x)\widehat{\beta}_{T+h\mid T,j}$
+\centerline{$\displaystyle\widehat{y}_{T+h\mid T}(x)= \widehat{\mu}(x)+\sum_{j=1}^{J}\phi_j(x)\widehat{\beta}_{T+h\mid T,j}$}
 \end{alertblock}
 
 ## Fertility forecasts
@@ -372,12 +381,42 @@ crop::dev.off.crop("figs/ausfertf3.pdf")
 
 ## Population forecasts
 
-  * Fit similar models to mortality rates, fertility rates, migration numbers
+  * Fit similar models to fertility rates, mortality rates, migration numbers
   * Constrained so sex differences do not diverge
   * Assume mortality, fertility and migration are independent processes
   * Simulate births, deaths and migrants for future years
   * Assume births and deaths are Poisson, migrant distribution is bootstrapped
   * Compute populations by age and sex for future years
+
+\vspace*{10cm}
+
+## Population forecasts
+
+\begin{block}{For each year of each simulated population}
+\begin{itemize}\tightlist
+  \item Draw from forecast distribution of fertility rates: $f_t(x)$
+  \item Generate number of births from Poisson population: $B_t$
+  \item Draw from forecast distribution of mortality rates: $m_t^F(x)$, $m_t^M(x)$
+  \item Generate number of deaths by age and sex: $D_t(x) \sim \text{Poisson}(P_t(x)m_t(x))$
+  \item Draw from forecast distribution of migration: $G_t^F(x)$, $G_t^M(x)$
+  \item Compute population for next year from
+    $$P_{t+1}(x) = P_t(x) + B_t1(x=0) - D_t(x) + G_t(x)$$
+\end{itemize}
+\end{block}
+
+Repeat for all future years. Repeat for multiple simulated \rlap{populations.}
+
+\begin{textblock}{5}(11,0.5)
+\fontsize{12}{13}\sf\textcolor{white}{Slightly over-simplified}
+\end{textblock}
+
+## Population forecasts
+
+```{r totalpopulationin2038, warnings=FALSE}
+loadd(pyramid_plot)
+pyramid_plot +
+  plot_annotation(title = "Forecast population for 2038 compared to 2019")
+```
 
 \vspace*{10cm}
 
@@ -390,19 +429,6 @@ population_plot
 
 \begin{textblock}{15}(3,8.3)
 Fifty-year forecasts with 80\% prediction intervals.
-\end{textblock}
-
-\vspace*{10cm}
-
-## Population forecasts
-
-```{r totalpopulationin2038, warnings=FALSE}
-loadd(pyramid_plot)
-pyramid_plot
-```
-
-\begin{textblock}{15}(1,7.5)
-Forecast population pyramid for 2038, with 80\% pointwise prediction intervals. Actual pyramid for 2019 shown using dashed lines.
 \end{textblock}
 
 \vspace*{10cm}
@@ -434,7 +460,7 @@ O^*&= \text{target OADR}
 \end{itemize}
 \end{alertblock}
 
-## Algorithm
+## Sustainable pension age schemes
 
 \fontsize{14}{15}\sf
 
@@ -496,6 +522,11 @@ This analysis does not allow for:
   * changing GDP per capita
   * COVID-19
 
+\vspace*{10cm}
+
+\placefig{4}{3.2}{width=11cm, height=10cm}{lifestages}
+
+
 ## Relevant papers
 \fontsize{13}{15}\sf
 
@@ -504,16 +535,17 @@ This analysis does not allow for:
 * Rob J Hyndman, Heather Booth & Farah Yasmeen (2013) Coherent mortality forecasting: the product-ratio method with functional time series models. *Demography* **50**(1), 261--283.
 * Rob J Hyndman, Yijun Zeng & Han Lin Shang (2021) Forecasting the old-age dependency ratio to determine a sustainable pension age. *Australian & New Zealand Journal of Statistics*, **63**(2), 241--256.
 
+
 ## More information
 \fontsize{18}{20}\sf
 
-\vspace*{1cm}
+\vspace*{0.2cm}
 
 \begin{block}{}
 \centerline{\url{robjhyndman.com/seminars/oadr/}}
 \end{block}
 
-\begin{textblock}{8}(4,4.2)
+\begin{textblock}{8}(7.55,4.6)
 \fontsize{18}{20}\sf
 \begin{alertblock}{Find me at ...}
 \href{https://robjhyndman.com}{\faicon{home} robjhyndman.com}
@@ -526,3 +558,6 @@ This analysis does not allow for:
 \end{alertblock}
 \end{textblock}
 \vspace*{10cm}
+
+\placefig{0.5}{2.8}{width=3cm}{forecast.png}
+\placefig{2}{5.4}{width=3cm}{demography.png}
