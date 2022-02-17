@@ -1,0 +1,528 @@
+---
+title: "Forecasting old-age dependency"
+date: "24 February 2022"
+author: "Rob J Hyndman"
+fontsize: 14pt
+classoption: aspectratio=169
+toc: true
+titlefontsize: 28pt
+output:
+  binb::monash:
+    colortheme: monashwhite
+    highlight: pygments
+    fig_width: 8
+    fig_height: 4
+    keep_tex: yes
+    includes:
+      in_header: preamble.tex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, messages = FALSE, warning = FALSE, cache = TRUE)
+
+# Set up plan
+source("_drake.R")
+
+# Run all code required
+drake::r_make()
+
+loadd(oadr_target)
+
+# Additional packages
+library(gganimate)
+```
+
+# Demographic change and old-age dependency
+
+## Ageing population
+
+  1. significant technological advances in medical care leading to longer life spans;
+  2. high fertility rates after World War II resulting in "baby-boomer" generation;
+  3. a large decline in fertility rates over past thirty years.
+
+\pause\vspace*{0.5cm}
+
+### Consequently:
+
+ * older people leaving workforce, and fewer workers replacing them.
+ * increasing old-age dependency ratio (OADR).
+
+## Population data
+
+```{r auspop, fig.show='animate', interval=1/10, message=FALSE, aniopts='controls,buttonsize=0.3cm,width=14.5cm'}
+loadd(aus.pop)
+bind_rows(
+  as_tibble(aus.pop$pop$male / 1000) %>%
+    mutate(
+      Age = aus.pop$age,
+      Sex = "Male"
+    ) %>%
+    pivot_longer(c(-Age, -Sex), names_to = "Year", values_to = "Population"),
+  as_tibble(aus.pop$pop$female / 1000) %>%
+    mutate(
+      Age = aus.pop$age,
+      Sex = "Female"
+    ) %>%
+    pivot_longer(c(-Age, -Sex), names_to = "Year", values_to = "Population")
+  ) %>%
+  mutate(Year = as.integer(Year)) %>%
+  ggplot(aes(x = Age, y = Population, group = Year, col = Year)) +
+  geom_line() +
+  facet_grid(. ~ Sex) +
+  scale_color_gradientn(colours = rainbow(6)) +
+  guides(colour = "none") +
+  transition_time(Year) +
+  ease_aes("linear") +
+  shadow_mark(colour = "grey70") +
+  labs(title = "Year: {frame_time}")
+```
+
+## Old-age Dependency Ratio (OADR)
+
+\begin{alertblock}{}
+\begin{equation*}
+  \text{OADR} = \frac{\text{number of people aged over pension age}}{\text{number of people aged 15 to pension age}}\times100\%
+\end{equation*}
+\end{alertblock}
+
+\only<2->{\begin{textblock}{9}(0.4,3.1)
+\begin{block}{OADR in year $t$}
+\begin{equation*}
+\text{OADR}_t = \frac{\displaystyle\sum_{x\ge \lfloor a_t\rfloor} P_t(x) - (a_t - \lfloor a_t \rfloor) P_t(\lfloor a_t\rfloor)}{\displaystyle\sum_{x=15}^{\lfloor a_t\rfloor-1} P_t(x) + (a_t - \lfloor a_t \rfloor) P_t(\lfloor a_t\rfloor)}
+\end{equation*}
+\end{block}
+\end{textblock}
+\begin{textblock}{5.2}(10.4,3.1)
+\begin{block}{}
+\begin{align*}
+P_t(x)= & \text{~population age $x$} \\[-0.13cm]
+        & \text{~in year $t$}\\
+   a_t= & \text{~pension age}\\[-0.13cm]
+        & \text{~in year $t$}
+\end{align*}
+\end{block}
+\end{textblock}}
+
+\only<3>{\begin{textblock}{12}(1.5,7)\fontsize{13}{13}\sf
+Assumptions:\vspace*{-0.3cm}
+  \begin{itemize}\tightlist
+    \item everyone retires at pension age
+    \item pension age can only be adjusted at beginning of year
+    \item birthdays are uniformly distributed over year
+  \end{itemize}
+\end{textblock}}
+
+\vspace*{10cm}
+
+## The age pension in Australia
+
+```{r changespension, echo=FALSE, out.width="100%", message=FALSE, warning=FALSE}
+# Policies obtained from https://www.dss.gov.au/seniors/benefits-payments/age-pension
+# Law: https://guides.dss.gov.au/guide-social-security-law/3/4/1/10
+# History: https://nationalseniors.com.au/news/campaign/a-short-history-of-the-age-pension-section
+loadd(pension_age, pension_colors)
+pension_age %>%
+  filter(Year >= 2014) %>%
+  ggplot(aes(x = Year, y = Age, group = Policy, col = Policy)) +
+  geom_line(lwd=1) +
+  labs(x = latex2exp::TeX("Year $t$"), y = latex2exp::TeX("Minimum pension age $a_t$")) +
+  scale_color_manual(
+    values = pension_colors[2:4],
+    labels = c(
+      "Proposed further change",
+      "Current policy",
+      "Pension age at 65"
+    )
+  )
+```
+
+# Forecasting population age structure
+
+## Available data
+
+\begin{block}{}\vspace*{-0.2cm}
+\begin{align*}
+  B_t(x) &= \text{Births in calendar year $t$ to females age $x$}\\
+  D_t(x) &= \text{Deaths in calendar year $t$ of persons age $x$}\\
+  P_t(x) &= \text{Population age $x$ at 1 January year $t$}\\
+  E_t(x) &= \text{Population age $x$ at 30 June year $t$}
+\end{align*}
+\end{block}
+
+  * Ages: $x=0,1,2,\dots,99, 100+$
+  * Year: $t=1,2,\dots,T$
+  * $m^F_t(x) = D^F_t(x) / E^F_t(x) =\text{female central death rates, year $t$}$
+  * $m^M_t(x) = D^M_t(x) / E^M_t(x) =\text{male central death rates, year $t$}$
+  * $f_t(x) = B_t(x) / E^F_t(x)=\text{fertility rates, year $t$}$
+
+## Mortality rates
+
+```{r ausmort, fig.show='animate', interval=1/10, message=FALSE, aniopts='controls,buttonsize=0.3cm,width=14.5cm'}
+loadd(aus.mort)
+tibble(
+    Year = rep(aus.mort$year, rep(length(aus.mort$age), length(aus.mort$year))),
+    Age = rep(aus.mort$age, length(aus.mort$year)),
+    Female = c(aus.mort$rate$female),
+    Male = c(aus.mort$rate$male),
+  ) %>%
+  mutate(Year = as.integer(round(Year))) %>%
+  pivot_longer(Female:Male, names_to = "Sex", values_to = "mxt") %>%
+  ggplot(aes(x = Age, y = mxt*1000, group = Year, col = Year)) +
+  geom_line() +
+  scale_y_log10(breaks = 10^(-1:3), labels=c("0.1","1","10","100","1000")) +
+  facet_grid(. ~ Sex) +
+  scale_color_gradientn(colours = rainbow(6)) +
+  guides(colour = "none") +
+  labs(x = latex2exp::TeX("Age $x$"), 
+       y = latex2exp::TeX("Death rate per 1000 people: $m_t(x)$")
+  ) +
+  transition_time(Year) +
+  ease_aes("linear") +
+  shadow_mark(colour = "grey70") +
+  labs(title = "Year: {frame_time}")
+```
+
+## Fertility rates
+
+```{r ausfert, fig.show='animate', interval=1/10, message=FALSE, aniopts='controls,buttonsize=0.3cm,width=14cm'}
+loadd(aus.fert)
+tibble(
+    Year = rep(aus.fert$year, rep(length(aus.fert$age), length(aus.fert$year))),
+    Age = rep(aus.fert$age, length(aus.fert$year)),
+    fxt = c(aus.fert$rate$female)
+  ) %>%
+  mutate(Year = as.integer(round(Year))) %>%
+  ggplot(aes(x = Age, y = fxt, group = Year, col = Year)) +
+  geom_line() +
+  scale_color_gradientn(colours = rainbow(6)) +
+  guides(colour = "none") +
+  labs(x = latex2exp::TeX("Age $x$"), 
+       y = latex2exp::TeX("Fertility rate per 1000 women: $f_t(x)$")
+  ) +
+  transition_time(Year) +
+  ease_aes("linear") +
+  shadow_mark(colour = "grey70") +
+  labs(title = "Year: {frame_time}")
+```
+
+## Migration rates
+
+```{r ausmig, fig.show='animate', interval=1/10, message=FALSE, aniopts='controls,buttonsize=0.3cm,width=14cm'}
+loadd(aus.mig)
+tibble(
+    Year = rep(aus.mig$year, rep(length(aus.mig$age), length(aus.mig$year))),
+    Age = rep(aus.mig$age, length(aus.mig$year)),
+    Female = c(aus.mig$rate$female),
+    Male = c(aus.mig$rate$male),
+  ) %>%
+  mutate(Year = as.integer(round(Year))) %>%
+  pivot_longer(Female:Male, names_to = "Sex", values_to = "mxt") %>%
+  ggplot(aes(x = Age, y = mxt, group = Year, col = Year)) +
+  geom_line() +
+  facet_grid(. ~ Sex) +
+  scale_color_gradientn(colours = rainbow(6)) +
+  guides(colour = "none") +
+  labs(x = latex2exp::TeX("Age $x$"), 
+       y = latex2exp::TeX("Net migration: $G_t(x)$")
+  ) +
+  transition_time(Year) +
+  ease_aes("linear") +
+  shadow_mark(colour = "grey70") +
+  labs(title = "Year: {frame_time}")
+```
+
+\begin{textblock}{7}(6,.1)
+\begin{block}{}
+\centerline{$G_t(x) = P_{t+1}(x+1) - P_t(x) + D_t(x)$}
+\end{block}
+\end{textblock}
+
+## Functional linear model
+
+\begin{block}{}
+\begin{align*}
+  y_t(x) & = s_t(x) + \sigma_t(x)\varepsilon_{t,x}\\
+  s_t(x) & = \mu(x) + \sum_{j=1}^{J}\beta_{t,j}\phi_j(x) + e_t(x)
+\end{align*}
+\end{block}
+
+  * $y_t(x)=$ observed data, year $t$, age $x$
+  * $s_t(x)=$ smoothed version of $y_t(x)$
+  * $\varepsilon_{t,x} \sim$ iid N(0,1)
+  * $\mu(x)=$ mean $s_t(x)$ across years. 
+  * $\phi_j(x)$ and $\beta_{t,j}$ are principal components & scores of $s_t(x)-\mu(x)$. 
+  * $e_t(x)$ serially uncorrelated with mean zero
+  
+\vspace*{10cm}
+
+## Functional linear model
+
+\begin{block}{}
+\begin{align*}
+  y_t(x) & = s_t(x) + \sigma_t(x)\varepsilon_{t,x}\\
+  s_t(x) & = \mu(x) + \sum_{j=1}^{J}\beta_{t,j}\phi_j(x) + e_t(x)
+\end{align*}
+\end{block}
+
+  * $\{\beta_{1,j},\dots,\beta_{T,j}\}$ is modelled with ARIMA or ARFIMA process
+  * $\widehat{\beta}_{T+h\mid T,j}$ is an $h$-step forecast from the AR(F)IMA model
+
+\begin{alertblock}{}
+$\displaystyle\widehat{y}_{T+h\mid T}(x)= \widehat{\mu}(x)+\sum_{j=1}^{J}\phi_j(x)\widehat{\beta}_{T+h\mid T,j}$
+\end{alertblock}
+
+## Fertility forecasts
+
+```{r loadfertfit}
+loadd(fertf)
+loadd(fert.fit)
+history <- tibble(
+    Year = rep(aus.fert$year, rep(length(aus.fert$age), length(aus.fert$year))),
+    Age = rep(aus.fert$age, length(aus.fert$year)),
+    fxt = c(aus.fert$rate$female)
+  ) 
+forecasts <- tibble(
+  Year = rep(fertf$year, rep(length(fertf$age), length(fertf$year))),
+  Age = rep(fertf$age, length(fertf$year)),
+  fxt = c(fertf$rate$female),
+  lower = c(fertf$rate$lower),
+  upper = c(fertf$rate$upper)
+)
+fert_df <- bind_rows(
+    history %>% mutate(type="History"), 
+    forecasts %>% mutate(type = "Forecast")
+  ) %>%
+  mutate(Year = as.integer(round(Year)))
+```
+
+```{r componentsfertility, message=FALSE}
+autoplot.fmforecast(fertf)
+```
+
+## Fertility forecasts
+
+```{r ausfertf, fig.show='animate', interval=1/10, message=FALSE, aniopts='controls,buttonsize=0.3cm,width=14cm', dependson="loadfertfit"}
+fert_df %>%
+  ggplot(aes(x = Age, y = fxt, group = Year, col = Year, lty=type)) +
+  geom_line() +
+  scale_color_gradientn(colours = rainbow(6)) +
+  guides(colour = "none") +
+  labs(x = latex2exp::TeX("Age $x$"), 
+       y = latex2exp::TeX("Fertility rate per 1000 women: $f_t(x)$")
+  ) +
+  transition_time(Year) +
+  ease_aes("linear") +
+  shadow_mark(colour = "grey70") +
+  labs(title = "Year: {frame_time}") +
+  guides(lty="none") +
+  ylim(0,282)
+```
+
+
+## Fertility forecasts
+
+```{r ausfertf2, dependson="loadfertfit"}
+# Save as pdf so we can match the size to the animated graphs that precede it
+p <- fert_df %>%
+  mutate(Year = as.integer(round(Year))) %>%
+  ggplot(aes(x = Age, y = fxt, group = Year, lty=type)) +
+  geom_line(col="grey70") +
+  scale_color_gradientn(colours = rainbow(6)) +
+  guides(colour = "none") +
+  labs(x = latex2exp::TeX("Age $x$"), 
+       y = latex2exp::TeX("Fertility rate per 1000 women: $f_t(x)$")
+  ) +
+  labs(title = "Year: 2019") +
+  guides(lty="none") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), fill=rainbow(6)[6], alpha=0.2,
+              data = fert_df %>% filter(Year==2019))+
+  geom_line(col=rainbow(6)[6], data = fert_df %>% filter(Year==2019)) +
+  ylim(0,282)
+pdf("figs/ausfertf2.pdf", width=8, height=4)
+print(p)
+crop::dev.off.crop("figs/ausfertf2.pdf")
+```
+
+\placefig{1}{1.55}{width=14cm, height=20cm}{figs/ausfertf2.pdf}
+
+## Fertility forecasts
+
+```{r ausfertf3, dependson="loadfertfit"}
+p <- fert_df %>%
+  mutate(Year = as.integer(round(Year))) %>%
+  ggplot(aes(x = Age, y = fxt, group = Year, lty=type)) +
+  geom_line(col="grey70") +
+  scale_color_gradientn(colours = rainbow(6)) +
+  guides(colour = "none") +
+  labs(x = latex2exp::TeX("Age $x$"), 
+       y = latex2exp::TeX("Fertility rate per 1000 women: $f_t(x)$")
+  ) +
+  labs(title = "Year: 2051") +
+  guides(lty="none") +
+  geom_ribbon(aes(ymin=lower, ymax=upper), fill=rainbow(6)[6], alpha=0.2,
+              data = fert_df %>% filter(Year==2051))+
+  geom_line(col=rainbow(6)[6], data = fert_df %>% filter(Year==2051)) +
+  ylim(0,282)
+pdf("figs/ausfertf3.pdf", width=8, height=4)
+print(p)
+crop::dev.off.crop("figs/ausfertf3.pdf")
+```
+
+\placefig{1}{1.55}{width=14cm, height=20cm}{figs/ausfertf3.pdf}
+
+## Population forecasts
+
+  * Fit similar models to mortality rates, fertility rates, migration numbers
+  * Constrained so sex differences do not diverge
+  * Assume mortality, fertility and migration are independent processes
+  * Simulate births, deaths and migrants for future years
+  * Assume births and deaths are Poisson, migrant distribution is bootstrapped
+  * Compute populations by age and sex for future years
+
+\vspace*{10cm}
+
+## Population forecasts
+
+```{r totalpopulationbyyears, fig.height=4}
+loadd(population_plot)
+population_plot
+```
+
+\begin{textblock}{15}(3,8.3)
+Fifty-year forecasts with 80\% prediction intervals.
+\end{textblock}
+
+\vspace*{10cm}
+
+## Population forecasts
+
+```{r totalpopulationin2038, warnings=FALSE}
+loadd(pyramid_plot)
+pyramid_plot
+```
+
+\begin{textblock}{15}(1,7.5)
+Forecast population pyramid for 2038, with 80\% pointwise prediction intervals. Actual pyramid for 2019 shown using dashed lines.
+\end{textblock}
+
+\vspace*{10cm}
+
+## OADR forecasts
+
+```{r OADRcurrent}
+loadd(oadr_plots)
+oadr_plots
+```
+
+# Sustainable pension age schemes
+
+## Sustainable pension age schemes
+
+\begin{block}{}
+\begin{align*}
+a_t&= \text{pension age in year $t$}\\
+O_t&= \text{OADR in year $t$}\\
+O^*&= \text{target OADR}
+\end{align*}
+\end{block}
+
+\begin{alertblock}{Find $a_{T+1},\dots,a_{T+H}$ where}
+\begin{itemize}\tightlist
+\item $a_t$ is minimum pension age such that $O_t \le O^*$.
+\item $a_{t-1} \le a_t < a_{t-1} + 1$ to prevent (a) years where no-one is able to retire; and (b) years where retired people become ineligible for the pension. 
+\item $a_t$ must be in increments of one month.
+\end{itemize}
+\end{alertblock}
+
+## Algorithm
+
+\fontsize{14}{15}\sf
+
+###
+
+Starting with $h=1$:
+
+  1. Set $a_{T+h}=a_{T+h-1}$.
+  2. Increment $a_{T+h}$ by one-month intervals until either $\widehat{O}_{T+h|T} \le O^*$ or $a_{T+h} - a_{T+h-1}=11$ months, where $\widehat{O}_{T+h|T}$ denotes the mean of the simulated $O_{T+h|T}$ values.
+
+Repeat for $h=2,\dots,H$. 
+
+\pause
+
+### Confidence intervals
+
+  * Range of pension age schemes for which $O^*$ is contained within 80% prediction intervals of simulated $O_{T+H|T}$ values. 
+  * Same algorithm but $\widehat{O}_{T+H|T}$ replaced by 10% and 90% quantiles.
+
+## Target OADR
+
+```{r OADRtarget}
+loadd(oadr_plots)
+oadr_plots +
+  geom_hline(aes(yintercept=oadr_target), color="#0072B2") +
+  annotate("text", x=1999, y=oadr_target+.01, label="Target OADR", color="#0072B2")
+```
+
+## Target pension age scheme
+
+```{r comparisonofpensionages}
+loadd(proposed_pension_scheme_plot)
+proposed_pension_scheme_plot +
+  ggtitle("Pension scheme that meets OADR target")
+```
+
+## Target pension age scheme
+
+```{r OADRwithoptimal}
+## plots of OADR with plausible pension age schemes
+loadd(proposed_oadr_plot)
+proposed_oadr_plot
+```
+
+## Target pension age scheme
+
+```{r OADRboundaries}
+loadd(oadr_upper_lower_plot)
+oadr_upper_lower_plot
+```
+
+OADR when pension age set at prediction interval boundaries.
+
+## Target pension age scheme
+
+This analysis does not allow for:
+
+  * superannuation and other sources of income.
+  * changing GDP per capita
+  * COVID-19
+
+## Relevant papers
+\fontsize{13}{15}\sf
+
+* Rob J Hyndman & Shahid Ullah (2007) Robust forecasting of mortality and fertility rates: a functional data approach. *Computational Statistics & Data Analysis* **51**, 4942--4956.
+* Rob J Hyndman & Heather Booth (2008) Stochastic population forecasts using functional data models for mortality, fertility and migration. *International Journal of Forecasting* **24**(3), 323--342.
+* Rob J Hyndman, Heather Booth & Farah Yasmeen (2013) Coherent mortality forecasting: the product-ratio method with functional time series models. *Demography* **50**(1), 261--283.
+* Rob J Hyndman, Yijun Zeng & Han Lin Shang (2021) Forecasting the old-age dependency ratio to determine a sustainable pension age. *Australian & New Zealand Journal of Statistics*, **63**(2), 241--256.
+
+## More information
+\fontsize{18}{20}\sf
+
+\vspace*{1cm}
+
+\begin{block}{}
+\centerline{\url{robjhyndman.com/seminars/oadr/}}
+\end{block}
+
+\begin{textblock}{8}(4,4.2)
+\fontsize{18}{20}\sf
+\begin{alertblock}{Find me at ...}
+\href{https://robjhyndman.com}{\faicon{home} robjhyndman.com}
+
+\href{https://twitter.com/robjhyndman}{\faicon{twitter} @robjhyndman}
+
+\href{https://github.com/robjhyndman}{\faicon{github}  @robjhyndman}
+
+\href{mailto:rob.hyndman@monash.edu}{\faicon{envelope}  rob.hyndman@monash.edu}
+\end{alertblock}
+\end{textblock}
+\vspace*{10cm}
