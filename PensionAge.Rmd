@@ -1,11 +1,10 @@
 ---
-title: "Forecasting old-age dependency"
+title: "Forecasting the old-age dependency ratio to determine a sustainable pension age"
 date: "24 February 2022"
 author: "Rob J Hyndman"
 fontsize: 14pt
 classoption: aspectratio=169
 toc: true
-titlefontsize: 28pt
 output:
   binb::monash:
     colortheme: monashwhite
