@@ -40,7 +40,7 @@ library(gganimate)
 
 \vspace*{3cm}\pause
 
-  1. technological advances in medical care leading to longer life
+  1. advances in medical care leading to longer life
   2. high fertility rates after World War II
   3. large decline in fertility rates over past thirty years.
 
@@ -90,7 +90,7 @@ bind_rows(
 
 \begin{alertblock}{}
 \begin{equation*}
-  \text{OADR} = \frac{\text{number of people aged over pension age}}{\text{number of people aged 15 to pension age}}\times100\%
+  \text{OADR} = \frac{\text{number of people aged over pension age}}{\text{number of people aged 15 to pension age}}
 \end{equation*}
 \end{alertblock}
 
@@ -143,6 +143,21 @@ pension_age %>%
       "Pension age at 65"
     )
   )
+```
+
+## Old Age Dependency Ratio in Australia
+
+```{r oadrhistory}
+loadd(OADR_history)
+loadd(history_pop)
+loadd(pension_age)
+OADR_65 <- oadr(history_pop, filter(pension_age, Policy == "Age65"))
+OADR_65 %>% 
+    ggplot(aes(x = Year, y = OADR*100)) +
+    geom_line(lwd=1, col=pension_colors["Age65"]) +
+    geom_line(col = "black", size = .75, data = OADR_history) +
+    labs(y = "Old Age Dependency Ratio (%)") +
+    annotate("text", x=2010, y=24, label="Pension age 65", col=pension_colors["Age65"])
 ```
 
 # Forecasting population age structure
@@ -412,6 +427,20 @@ Repeat for all future years. Repeat for multiple simulated \rlap{populations.}
 
 ## Population forecasts
 
+```{r aussim, fig.show='animate', interval=1, message=FALSE, aniopts='controls=none,autoplay,loop,width=14.5cm'}
+loadd(aussim_df)
+aussim_df %>%
+  filter(Rep %in% seq(1,2000,by=100)) %>%
+  ggplot(aes(x=Age, y=Population, group=Year, col=Year)) +
+  geom_line() +
+  facet_grid(. ~ Sex) +
+  scale_color_gradientn(colours = rainbow(6)) +
+  transition_states(Rep, transition_length=0, state_length=1)
+```
+
+
+## Population forecasts
+
 ```{r totalpopulationin2038, warnings=FALSE}
 loadd(pyramid_plot)
 pyramid_plot +
@@ -485,8 +514,8 @@ Repeat for $h=2,\dots,H$.
 ```{r OADRtarget}
 loadd(oadr_plots)
 oadr_plots +
-  geom_hline(aes(yintercept=oadr_target), color="#0072B2") +
-  annotate("text", x=1999, y=oadr_target+.01, label="Target OADR", color="#0072B2")
+  geom_hline(aes(yintercept=oadr_target*100), color="#0072B2") +
+  annotate("text", x=1999, y=oadr_target*100+1, label="Target OADR", color="#0072B2")
 ```
 
 ## Target pension age scheme

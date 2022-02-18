@@ -148,14 +148,14 @@ the_plan <-
     mutate(
       Policy = factor(Policy, levels = c("Age65", "Current", "Proposed"), ordered = TRUE)
     ) %>%
-    ggplot(aes(x = Year, y = OADR)) +
+    ggplot(aes(x = Year, y = OADR*100)) +
     #geom_hline(yintercept = oadr_target, col = "gray") +
-    geom_ribbon(aes(ymin = Lo, ymax = Hi, fill = Policy, group = Policy),
+    geom_ribbon(aes(ymin = Lo*100, ymax = Hi*100, fill = Policy, group = Policy),
                 alpha = 0.5) +
     geom_line(aes(col = Policy, group = Policy), lwd=1) +
     geom_line(col = "black", size = .75, data = OADR_history) +
     xlab("Year") +
-    ylab("Old Age Dependency Ratio") +
+    ylab("Old Age Dependency Ratio (%)") +
     ggtitle("OADR forecasts under different pension schemes") +
     scale_color_manual(
       values = pension_colors[4:2],
@@ -204,27 +204,27 @@ the_plan <-
 
   proposed_oadr_plot = OADR_optimal %>%
     ggplot(aes(x = Year)) +
-    geom_hline(yintercept = oadr_target, color="#0072B2") +
-    annotate("text", x=1999, y=oadr_target+.01, label="Target OADR", color="#0072B2") +
-    geom_ribbon(aes(ymin = Lo, ymax = Hi), fill = "#7dcfef") +
-    geom_line(aes(y = OADR), col = pension_colors["Optimal"], lwd=1) +
-    geom_line(data = OADR_history, aes(y = OADR), lwd=1) +
+    geom_hline(yintercept = oadr_target*100, color="#0072B2") +
+    annotate("text", x=1999, y=oadr_target*100+1, label="Target OADR", color="#0072B2") +
+    geom_ribbon(aes(ymin = Lo*100, ymax = Hi*100), fill = "#7dcfef") +
+    geom_line(aes(y = OADR*100), col = pension_colors["Optimal"], lwd=1) +
+    geom_line(data = OADR_history, aes(y = OADR*100), lwd=1) +
     ggtitle("OADR forecast estimates for the target pension age scheme") +
-    ylab("Old age dependency ratio"),
+    ylab("Old age dependency ratio (%)"),
 
   oadr_upper_lower_plot = bind_rows(
         OADR_upper %>% mutate(Series = "Upper boundary"),
         OADR_lower %>% mutate(Series = "Lower boundary"),
       ) %>%
       ggplot(aes(x = Year)) +
-      geom_hline(yintercept = oadr_target, color="#0072B2") +
-      annotate("text", x=1999, y=oadr_target+.01, label="Target OADR", color="#0072B2") +
-      geom_ribbon(aes(ymin = Lo, ymax = Hi), fill = "#7dcfef") +
-      geom_line(aes(y = OADR), col = pension_colors["Optimal"], lwd=1) +
-      geom_line(data = OADR_history, aes(y = OADR), lwd=1) +
+      geom_hline(yintercept = oadr_target*100, color="#0072B2") +
+      annotate("text", x=1999, y=oadr_target*100+1, label="Target OADR", color="#0072B2") +
+      geom_ribbon(aes(ymin = Lo*100, ymax = Hi*100), fill = "#7dcfef") +
+      geom_line(aes(y = OADR*100), col = pension_colors["Optimal"], lwd=1) +
+      geom_line(data = OADR_history, aes(y = OADR*100), lwd=1) +
       facet_grid(. ~ Series) +
       ggtitle("OADR forecasts for boundary pension age schemes") +
-      ylab("Old age dependency ratio")
+      ylab("Old age dependency ratio (%)")
 
   # Forecast accuracy via tscv
   #rollingsim = rolling_sim(ausmort.sm, ausfert.sm, ausmig.sm, aus.pop,
