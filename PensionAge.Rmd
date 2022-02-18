@@ -261,7 +261,7 @@ tibble(
 \end{block}
 \end{textblock}
 
-## Functional linear model
+## Functional linear model for fertility
 
 \begin{block}{}
 \begin{align*}
@@ -270,7 +270,7 @@ tibble(
 \end{align*}
 \end{block}
 
-  * $y_t(x)=$ observed data, year $t$, age $x$
+  * $y_t(x)=\log(f_t(x))$, year $t$, age $x$
   * $s_t(x)=$ smoothed version of $y_t(x)$
   * $\varepsilon_{t,x} \sim$ iid N(0,1)
   * $\mu(x)=$ mean $s_t(x)$ across years. 
@@ -279,7 +279,7 @@ tibble(
   
 \vspace*{10cm}
 
-## Functional linear model
+## Functional linear model for fertility
 
 \begin{block}{}
 \begin{align*}
@@ -288,8 +288,8 @@ tibble(
 \end{align*}
 \end{block}
 
-  * $\{\beta_{1,j},\dots,\beta_{T,j}\}$ is automatically modelled with ARIMA or ARFIMA process
-  * $\widehat{\beta}_{T+h\mid T,j}$ is an $h$-step forecast from the AR(F)IMA model
+  * $\{\beta_{1,j},\dots,\beta_{T,j}\}$ is automatically modelled with ARIMA process
+  * $\widehat{\beta}_{T+h\mid T,j}$ is an $h$-step forecast from the ARIMA model
 
 \begin{alertblock}{}
 \centerline{$\displaystyle\widehat{y}_{T+h\mid T}(x)= \widehat{\mu}(x)+\sum_{j=1}^{J}\phi_j(x)\widehat{\beta}_{T+h\mid T,j}$}
@@ -393,6 +393,56 @@ crop::dev.off.crop("figs/ausfertf3.pdf")
 ```
 
 \placefig{1}{1.55}{width=14cm, height=20cm}{figs/ausfertf3.pdf}
+
+## Functional linear model for fertility
+
+\begin{block}{}
+\begin{align*}
+  y_t(x) & = s_t(x) + \sigma_t(x)\varepsilon_{t,x}\\
+  s_t(x) & = \mu(x) + \sum_{j=1}^{J}\beta_{t,j}\phi_j(x) + e_t(x)
+\end{align*}
+\end{block}
+
+  * $y_t(x)= \log(f_t(x))$ 
+  * $s_t(x)=$ smoothed version of $y_t(x)$
+  * $\varepsilon_{t,x} \sim$ iid N(0,1). $e_t(x)$ serially uncorrelated with mean zero
+  * $\mu(x)=$ mean $s_t(x)$ across years. 
+  * $\phi_j(x)$ and $\beta_{t,j}$ are principal components & scores of $s_t(x)-\mu(x)$. 
+  * $\{\beta_{1,j},\dots,\beta_{T,j}\}$ is modelled with ARIMA \rlap{processes}
+
+## Functional linear models for mortality
+
+\begin{block}{}
+\begin{align*}
+  y_t(x) & = s_t(x) + \sigma_t(x)\varepsilon_{t,x}\\
+  s_t(x) & = \mu(x) + \sum_{j=1}^{J}\beta_{t,j}\phi_j(x) + e_t(x)
+\end{align*}
+\end{block}
+
+  * $y_t(x)= \log(m_t^M(x)m_t^F(x))$ and $\log(m_t^M(x)/m_t^F(x))$ 
+  * $s_t(x)=$ smoothed version of $y_t(x)$
+  * $\varepsilon_{t,x} \sim$ iid N(0,1). $e_t(x)$ serially uncorrelated with mean zero
+  * $\mu(x)=$ mean $s_t(x)$ across years. 
+  * $\phi_j(x)$ and $\beta_{t,j}$ are principal components & scores of $s_t(x)-\mu(x)$. 
+  * $\{\beta_{1,j},\dots,\beta_{T,j}\}$ is modelled with ARIMA or ARFIMA \rlap{processes}
+
+
+## Functional linear models for migration
+
+\begin{block}{}
+\begin{align*}
+  y_t(x) & = s_t(x) + \sigma_t(x)\varepsilon_{t,x}\\
+  s_t(x) & = \mu(x) + \sum_{j=1}^{J}\beta_{t,j}\phi_j(x) + e_t(x)
+\end{align*}
+\end{block}
+
+  * $y_t(x)= (G_t^M(x) + G_t^F(x))$ and $(G_t^M(x) - G_t^F(x))$
+  * $s_t(x)=$ smoothed version of $y_t(x)$
+  * $\varepsilon_{t,x} \sim$ iid N(0,1). $e_t(x)$ serially uncorrelated with mean zero
+  * $\mu(x)=$ mean $s_t(x)$ across years. 
+  * $\phi_j(x)$ and $\beta_{t,j}$ are principal components & scores of $s_t(x)-\mu(x)$. 
+  * $\{\beta_{1,j},\dots,\beta_{T,j}\}$ is modelled with ARIMA or ARFIMA \rlap{processes}
+
 
 ## Population forecasts
 
